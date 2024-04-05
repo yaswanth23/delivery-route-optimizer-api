@@ -64,9 +64,11 @@ To utilize this visualization tool, simply access the provided web interface by 
 2. **Accessing Sample Data:** If you don't have sample data, you can click on the `Click to Copy Sample JSON Data` button provided on the web interface. 
 
 This button allows you to quickly copy the sample JSON data to your clipboard for pasting into the input field.
+
 3. **Inputting Coordinates:** Now, input the sample data or your own data into the `Enter Delivery coordinates` textarea provided on the web interface.
 
 You can either paste the copied sample JSON data or input your custom latitude and longitude coordinates directly into the textarea.
+
 4. **Calculating Route:** After inputting the data, users can click on the `Calculate Route` button.
 5. **Visualization of Optimized Route:** The web interface then displays the optimized delivery route on the map.
 This visualization showcases the shortest path and any plotted points or route lines based on the provided coordinates.
