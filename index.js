@@ -2,98 +2,12 @@ const axios = require("axios");
 
 exports.handler = async (event) => {
   try {
-    const LOCATIONS = [
-      {
-        name: "MG Road, Bangalore",
-        coordinates: {
-          lat: 12.9758,
-          lng: 77.6045,
-        },
-      },
-      {
-        name: "Koramangala, Bangalore",
-        coordinates: {
-          lat: 12.9352,
-          lng: 77.6245,
-        },
-      },
-      {
-        name: "Indiranagar, Bangalore",
-        coordinates: {
-          lat: 12.9784,
-          lng: 77.6408,
-        },
-      },
-      {
-        name: "Whitefield, Bangalore",
-        coordinates: {
-          lat: 12.9698,
-          lng: 77.7499,
-        },
-      },
-      {
-        name: "Jayanagar, Bangalore",
-        coordinates: {
-          lat: 12.9308,
-          lng: 77.5838,
-        },
-      },
-      {
-        name: "Electronic City, Bangalore",
-        coordinates: {
-          lat: 12.8456,
-          lng: 77.6603,
-        },
-      },
-      {
-        name: "Yelahanka, Bangalore",
-        coordinates: {
-          lat: 13.1007,
-          lng: 77.5963,
-        },
-      },
-      {
-        name: "Malleshwaram, Bangalore",
-        coordinates: {
-          lat: 13.0068,
-          lng: 77.5692,
-        },
-      },
-      {
-        name: "Bannerghatta Road, Bangalore",
-        coordinates: {
-          lat: 12.8876,
-          lng: 77.597,
-        },
-      },
-      {
-        name: "Hebbal, Bangalore",
-        coordinates: {
-          lat: 13.0359,
-          lng: 77.597,
-        },
-      },
-    ];
-
     const data = {
-      startLocation: event.startLocation,
+      coordinates: event.coordinates,
     };
     console.log("data: ", data);
 
-    let findlocation = LOCATIONS.find(
-      (location) =>
-        location.coordinates.lat === data.startLocation.lat &&
-        location.coordinates.lng === data.startLocation.lng
-    );
-
-    if (!findlocation) {
-      return {
-        statusCode: 500,
-        error: "Start location not found in the provided locations.",
-      };
-    }
-
-    const route = await calculateRoute(data, LOCATIONS);
+    const route = await calculateRoute(data);
     console.log("Route calculated:", route);
 
     return {
@@ -108,11 +22,12 @@ exports.handler = async (event) => {
   }
 };
 
-async function calculateRoute(data, LOCATIONS) {
+async function calculateRoute(data) {
   try {
-    let startLocation = data.startLocation;
-    let unvisitedLocations = [...LOCATIONS];
+    let startLocation = data.coordinates[0];
+    let unvisitedLocations = [...data.coordinates];
     let route = [];
+    let addressesMap = new Map();
 
     while (unvisitedLocations.length > 0) {
       let nearestLocation = null;
@@ -122,7 +37,8 @@ async function calculateRoute(data, LOCATIONS) {
       for (const location of unvisitedLocations) {
         const distanceData = await calculateDistance(
           startLocation,
-          location.coordinates
+          location,
+          addressesMap
         );
 
         const distanceInMeters = distanceData.distanceInMeters;
@@ -136,12 +52,19 @@ async function calculateRoute(data, LOCATIONS) {
       }
 
       if (nearestLocation) {
+        nearestLocation.originAddress = addressesMap.get(
+          `${nearestLocation.lat},${nearestLocation.lng}`
+        );
         nearestLocation.shortestDistanceText = shortestDistanceText;
         route.push(nearestLocation);
         unvisitedLocations = unvisitedLocations.filter(
-          (loc) => loc !== nearestLocation
+          (loc) =>
+            loc.lat !== nearestLocation.lat || loc.lng !== nearestLocation.lng
         );
-        startLocation = nearestLocation.coordinates;
+        startLocation = {
+          lat: nearestLocation.lat,
+          lng: nearestLocation.lng,
+        };
       } else {
         throw new Error("Failed to find the nearest location.");
       }
@@ -154,7 +77,7 @@ async function calculateRoute(data, LOCATIONS) {
   }
 }
 
-async function calculateDistance(source, destination) {
+async function calculateDistance(source, destination, addressesMap) {
   try {
     const apiKey = "AIzaSyAg1jbL4bRBmiqWx5ZQImooTyRSMQTOtcs";
     const apiUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${source.lat},${source.lng}&destinations=${destination.lat},${destination.lng}&key=${apiKey}`;
@@ -164,6 +87,17 @@ async function calculateDistance(source, destination) {
     if (response.data.status === "OK") {
       const distance = response.data.rows[0]?.elements[0]?.distance?.text;
       const duration = response.data.rows[0]?.elements[0]?.duration?.text;
+      const originAddresses = response.data.origin_addresses[0];
+      const destinationAddresses = response.data.destination_addresses[0];
+
+      const sourceKey = `${source.lat},${source.lng}`;
+      const destKey = `${destination.lat},${destination.lng}`;
+      if (!addressesMap.has(sourceKey)) {
+        addressesMap.set(sourceKey, originAddresses);
+      }
+      if (!addressesMap.has(destKey)) {
+        addressesMap.set(destKey, destinationAddresses);
+      }
 
       const distanceInMeters =
         response.data.rows[0]?.elements[0]?.distance?.value;
